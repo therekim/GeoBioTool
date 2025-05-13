@@ -2,7 +2,7 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
 from qgis.PyQt.QtGui import QIcon
 from qgis.core import QgsProcessingProvider
 from .geobiotool_algorithm import GeoBioToolAlgorithm
-from . import resources  # ✅ 리소스 등록
+from . import resources  
 
 class GeoBioToolProvider(QgsProcessingProvider):
     def loadAlgorithms(self):
@@ -17,7 +17,7 @@ class GeoBioToolProvider(QgsProcessingProvider):
     def longName(self):
         return "GeoBioTool: Biodiversity Indices"
 
-class GeoBioToolPlugin:  # ✅ 반드시 있어야 함
+class GeoBioToolPlugin:  
     def __init__(self, iface):
         self.iface = iface
         self.action = None
@@ -75,7 +75,7 @@ class GeoBioToolPlugin:  # ✅ 반드시 있어야 함
             si = simpson(cnt)
 
             with open(save_path, 'w', encoding='utf-8') as f:
-                f.write("✅ [GeoBioTool Results]\n")
+                f.write("[GeoBioTool Results]\n")
                 f.write(f"Total pixel count: {total}\n")
                 f.write(f"Shannon-Wiener: {s:.4f}\n")
                 f.write(f"Simpson: {si:.4f}\n")

@@ -10,6 +10,7 @@ from osgeo import gdal
 import numpy as np
 from collections import Counter
 
+
 class GeoBioToolAlgorithm(QgsProcessingAlgorithm):
     def initAlgorithm(self, config=None):
         self.addParameter(QgsProcessingParameterRasterLayer(
@@ -20,18 +21,17 @@ class GeoBioToolAlgorithm(QgsProcessingAlgorithm):
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsRasterLayer(parameters, "INPUT", context)
         if layer is None:
-            raise Exception("❌ Cannot load raster layer. Check the input.")
+            raise Exception("Cannot load raster layer. Check the input.")
 
         output_path = self.parameterAsFileOutput(parameters, "OUTPUT", context)
 
-        # ✅ GDAL을 통해 직접 경로에서 데이터 읽기
         ds = gdal.Open(layer.source())
         if ds is None:
-            raise Exception("❌ Failed to open raster via GDAL.")
+            raise Exception("Failed to open raster via GDAL.")
 
         band = ds.GetRasterBand(1)
         if band is None:
-            raise Exception("❌ No band 1 found in the raster.")
+            raise Exception("No band 1 found in the raster.")
 
         data = band.ReadAsArray().astype(np.float32)
         data[np.isnan(data)] = 0
@@ -53,11 +53,25 @@ class GeoBioToolAlgorithm(QgsProcessingAlgorithm):
         s = shannon(count)
         si = simpson(count)
 
+        # 클래스별 비율 계산
+        proportions = {k: v / total for k, v in count.items()}
+
+        # 우점종 3종 추출
+        dominant = sorted(proportions.items(), key=lambda x: x[1], reverse=True)[:3]
+
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write("✅ [GeoBioTool Results]\n")
+            f.write("[GeoBioTool Results]\n")
             f.write(f"Total pixel count: {total}\n")
-            f.write(f"Shannon-Wiener: {s:.4f}\n")
-            f.write(f"Simpson: {si:.4f}\n")
+            f.write(f"Shannon-Wiener Index: {s:.4f}\n")
+            f.write(f"Simpson Index: {si:.4f}\n\n")
+
+            f.write("Class-wise Proportions:\n")
+            for cls, p in sorted(proportions.items()):
+                f.write(f"Class {int(cls)}: {p:.4f} ({count[cls]} pixels)\n")
+
+            f.write("\nTop 3 Dominant Classes:\n")
+            for cls, p in dominant:
+                f.write(f"Class {int(cls)}: {p:.4f} ({count[cls]} pixels)\n")
 
         return {"OUTPUT": output_path}
 
