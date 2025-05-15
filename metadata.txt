@@ -1,15 +1,15 @@
 [general]
 name=GeoBioTool
-description=GeoBioTool enables QGIS users to compute biodiversity indices from classified raster datasets. Designed for ecological monitoring and restoration projects, this plugin calculates Shannon–Wiener (Shannon, 1948) and Simpson (Simpson, 1949) indices from any land cover or habitat classification map. It is suitable for biodiversity impact assessment, ecological health monitoring, and nature-positive spatial planning using remote sensing.
-version=1.0.0
+description=GeoBioTool(GBT) enables QGIS users to compute biodiversity indices from classified raster datasets. Designed for ecological monitoring and restoration projects, this plugin calculates Shannon–Wiener (Shannon, 1948) and Simpson (Simpson, 1949) indices from any land cover or habitat classification map. It is suitable for biodiversity impact assessment, ecological health monitoring, and nature-positive spatial planning using remote sensing.
+version=1.0.1
 qgisMinimumVersion=3.0
 author=Daeyeol Kim (Invalab Co., Ltd.), Wonhyeop Shin (Invalab Co., Ltd.), Dennis Heejoon Choi, Jihwan Kim
 email=wing94wing@gmail.com
-about=GeoBioTool is a biodiversity analysis plugin powered by Invalab. Vision: Adding Nature, Realizing Nature-Positive. Mission: Re-building nature capital from intangible value into investable asset. We're unlocking the hidden value 'X' from life of earth.
+about=GeoBioTool(GBT) is a biodiversity analysis plugin powered by Invalab. Vision: Adding Nature, Realizing Nature-Positive. Mission: Re-building nature capital from intangible value into investable asset. We're unlocking the hidden value 'X' from life of earth.
 icon=icons/icon.png
 tags=biodiversity, ecology, raster, gui, toolbox, shannon, simpson, shannon-wiener, simpson-index, habitat, diversity, indices
 homepage=http://www.invalab.com/
 repository=https://github.com/therekim/GeoBioTool
-bug_tracker=https://github.com/therekim/GeoBioTool/issues
+tracker=https://github.com/therekim/GeoBioTool/issues
 hasProcessingProvider=yes
 plugin_type=both

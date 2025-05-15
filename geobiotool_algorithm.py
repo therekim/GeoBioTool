@@ -1,10 +1,11 @@
 from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingParameterRasterLayer,
-    QgsProcessingParameterFileDestination
+    QgsProcessingParameterFileDestination,
+    QgsProcessingParameterString
 )
 from qgis.PyQt.QtGui import QIcon
-from . import resources  # 아이콘 리소스 등록
+from . import resources
 
 from osgeo import gdal
 import numpy as np
@@ -17,6 +18,21 @@ class GeoBioToolAlgorithm(QgsProcessingAlgorithm):
             "INPUT", "Input classified raster"))
         self.addParameter(QgsProcessingParameterFileDestination(
             "OUTPUT", "Output text file", fileFilter="Text files (*.txt)"))
+        self.addParameter(QgsProcessingParameterString(
+            "CLASSES", "Target classes (e.g., 1,4,6 or 0-9)", optional=True))
+
+    def parse_classes(self, input_str):
+        classes = set()
+        if not input_str:
+            return None
+        tokens = input_str.split(',')
+        for token in tokens:
+            if '-' in token:
+                start, end = map(int, token.split('-'))
+                classes.update(range(start, end + 1))
+            else:
+                classes.add(int(token))
+        return classes
 
     def processAlgorithm(self, parameters, context, feedback):
         layer = self.parameterAsRasterLayer(parameters, "INPUT", context)
@@ -24,6 +40,8 @@ class GeoBioToolAlgorithm(QgsProcessingAlgorithm):
             raise Exception("Cannot load raster layer. Check the input.")
 
         output_path = self.parameterAsFileOutput(parameters, "OUTPUT", context)
+        class_input = self.parameterAsString(parameters, "CLASSES", context)
+        selected_classes = self.parse_classes(class_input)
 
         ds = gdal.Open(layer.source())
         if ds is None:
@@ -38,9 +56,15 @@ class GeoBioToolAlgorithm(QgsProcessingAlgorithm):
         data[np.isinf(data)] = 0
 
         flat = data.flatten()
-        valid_values = flat[(flat > 0) & (flat < 255)]
+        if selected_classes is not None:
+            valid_values = flat[np.isin(flat, list(selected_classes))]
+        else:
+            valid_values = flat[(flat > 0) & (flat < 255)]
+
         count = Counter(valid_values)
         total = sum(count.values())
+        if total == 0:
+            raise Exception("No valid pixels found for selected class range.")
 
         def shannon(c):
             ps = [v / total for v in c.values()]
@@ -52,12 +76,7 @@ class GeoBioToolAlgorithm(QgsProcessingAlgorithm):
 
         s = shannon(count)
         si = simpson(count)
-
-        # 클래스별 비율 계산
         proportions = {k: v / total for k, v in count.items()}
-
-        # 우점종 3종 추출
-        dominant = sorted(proportions.items(), key=lambda x: x[1], reverse=True)[:3]
 
         with open(output_path, "w", encoding="utf-8") as f:
             f.write("[GeoBioTool Results]\n")
@@ -65,13 +84,13 @@ class GeoBioToolAlgorithm(QgsProcessingAlgorithm):
             f.write(f"Shannon-Wiener Index: {s:.4f}\n")
             f.write(f"Simpson Index: {si:.4f}\n\n")
 
-            f.write("Class-wise Proportions:\n")
-            for cls, p in sorted(proportions.items()):
-                f.write(f"Class {int(cls)}: {p:.4f} ({count[cls]} pixels)\n")
+            f.write("Class-wise Proportions (sorted by class):\n")
+            for cls in sorted(proportions.keys()):
+                f.write(f"Class {int(cls)}: {proportions[cls]:.4f} ({count[cls]} pixels)\n")
 
-            f.write("\nTop 3 Dominant Classes:\n")
-            for cls, p in dominant:
-                f.write(f"Class {int(cls)}: {p:.4f} ({count[cls]} pixels)\n")
+            f.write("\nClass-wise Proportions (sorted by proportion):\n")
+            for cls, prop in sorted(proportions.items(), key=lambda x: x[1], reverse=True):
+                f.write(f"Class {int(cls)}: {prop:.4f} ({count[cls]} pixels)\n")
 
         return {"OUTPUT": output_path}
 
