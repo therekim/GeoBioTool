@@ -2,11 +2,13 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
 from qgis.PyQt.QtGui import QIcon
 from qgis.core import QgsProcessingProvider
 from .geobiotool_algorithm import GeoBioToolAlgorithm
+from .geobiotool_fhd_algorithm import GeoBioToolFHDAlgorithm
 from . import resources  
 
 class GeoBioToolProvider(QgsProcessingProvider):
     def loadAlgorithms(self):
         self.addAlgorithm(GeoBioToolAlgorithm())
+        self.addAlgorithm(GeoBioToolFHDAlgorithm())
 
     def id(self):
         return "geobiotool"
