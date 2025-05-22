@@ -1,14 +1,23 @@
+# -*- coding: utf-8 -*-
 from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
-from qgis.PyQt.QtGui import QIcon
-from qgis.core import QgsProcessingProvider
-from .geobiotool_algorithm import GeoBioToolAlgorithm
-from .geobiotool_fhd_algorithm import GeoBioToolFHDAlgorithm
-from . import resources  
+from qgis.PyQt.QtGui    import QIcon
+from qgis.core          import QgsProcessingProvider, QgsApplication
+
+from .geobiotool_shannon_algorithm import GeoBioToolShannonAlgorithm
+from .geobiotool_simpson_algorithm import GeoBioToolSimpsonAlgorithm
+from .geobiotool_fhd_algorithm      import GeoBioToolFHDAlgorithm
+from .geobiotool_rumple_algorithm   import GeoBioToolRumpleAlgorithm
+from .geobiotool_rugosity_algorithm import GeoBioToolRugosityAlgorithm
+
+from . import resources
 
 class GeoBioToolProvider(QgsProcessingProvider):
     def loadAlgorithms(self):
-        self.addAlgorithm(GeoBioToolAlgorithm())
+        self.addAlgorithm(GeoBioToolShannonAlgorithm())
+        self.addAlgorithm(GeoBioToolSimpsonAlgorithm())
         self.addAlgorithm(GeoBioToolFHDAlgorithm())
+        self.addAlgorithm(GeoBioToolRumpleAlgorithm())
+        self.addAlgorithm(GeoBioToolRugosityAlgorithm())
 
     def id(self):
         return "geobiotool"
@@ -17,37 +26,37 @@ class GeoBioToolProvider(QgsProcessingProvider):
         return "GeoBioTool"
 
     def longName(self):
-        return "GeoBioTool: Biodiversity Indices"
+        return "GeoBioTool: Biodiversity and Canopy Metrics"
 
-class GeoBioToolPlugin:  
+class GeoBioToolPlugin:
     def __init__(self, iface):
         self.iface = iface
         self.action = None
         self.provider = None
 
     def initGui(self):
-        self.action = QAction(QIcon(":/icons/icon.png"), "Run GeoBioTool", self.iface.mainWindow())
-        self.action.triggered.connect(self.run_gui)
+        icon = QIcon(":/icons/icon.png")
+        self.action = QAction(icon, "GeoBioTool", self.iface.mainWindow())
         self.iface.addToolBarIcon(self.action)
         self.iface.addPluginToMenu("&GeoBioTool", self.action)
-
-        from qgis.core import QgsApplication
         self.provider = GeoBioToolProvider()
         QgsApplication.processingRegistry().addProvider(self.provider)
 
     def unload(self):
         self.iface.removeToolBarIcon(self.action)
         self.iface.removePluginMenu("&GeoBioTool", self.action)
-
-        from qgis.core import QgsApplication
         QgsApplication.processingRegistry().removeProvider(self.provider)
 
     def run_gui(self):
-        raster_path, _ = QFileDialog.getOpenFileName(None, "Select classified raster", "", "TIFF files (*.tif *.tiff)")
+        raster_path, _ = QFileDialog.getOpenFileName(
+            None, "Select classified raster", "", "TIFF files (*.tif *.tiff)"
+        )
         if not raster_path:
             return
 
-        save_path, _ = QFileDialog.getSaveFileName(None, "Save output text", "", "Text files (*.txt)")
+        save_path, _ = QFileDialog.getSaveFileName(
+            None, "Save output text", "", "Text files (*.txt)"
+        )
         if not save_path:
             return
 
@@ -79,10 +88,10 @@ class GeoBioToolPlugin:
             with open(save_path, 'w', encoding='utf-8') as f:
                 f.write("[GeoBioTool Results]\n")
                 f.write(f"Total pixel count: {total}\n")
-                f.write(f"Shannon-Wiener: {s:.4f}\n")
-                f.write(f"Simpson: {si:.4f}\n")
+                f.write(f"Shannon–Wiener Index: {s:.4f}\n")
+                f.write(f"Simpson Index: {si:.4f}\n")
 
-            QMessageBox.information(None, "GeoBioTool", "Biodiversity indices saved successfully!")
+            QMessageBox.information(None, "GeoBioTool", "Saved successfully!")
 
         except Exception as e:
             QMessageBox.critical(None, "GeoBioTool Error", str(e))
