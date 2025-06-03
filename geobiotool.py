@@ -3,21 +3,25 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
 from qgis.PyQt.QtGui    import QIcon
 from qgis.core          import QgsProcessingProvider, QgsApplication
 
-from .geobiotool_shannon_algorithm import GeoBioToolShannonAlgorithm
-from .geobiotool_simpson_algorithm import GeoBioToolSimpsonAlgorithm
-from .geobiotool_fhd_algorithm      import GeoBioToolFHDAlgorithm
-from .geobiotool_rumple_algorithm   import GeoBioToolRumpleAlgorithm
-from .geobiotool_rugosity_algorithm import GeoBioToolRugosityAlgorithm
+from .geobiotool_shannon_algorithm      import GeoBioToolShannonAlgorithm
+from .geobiotool_simpson_algorithm      import GeoBioToolSimpsonAlgorithm
+from .geobiotool_fhd_algorithm          import GeoBioToolFHDAlgorithm
+from .geobiotool_rumple_algorithm       import GeoBioToolRumpleAlgorithm
+from .geobiotool_rugosity_algorithm     import GeoBioToolRugosityAlgorithm
+from .geobiotool_lai_vci_algorithm      import GeoBioToolLAIVCIAlgorithm
 
 from . import resources
 
 class GeoBioToolProvider(QgsProcessingProvider):
     def loadAlgorithms(self):
+        # raster-based indices
         self.addAlgorithm(GeoBioToolShannonAlgorithm())
         self.addAlgorithm(GeoBioToolSimpsonAlgorithm())
+        # ASCII point cloud metrics
         self.addAlgorithm(GeoBioToolFHDAlgorithm())
         self.addAlgorithm(GeoBioToolRumpleAlgorithm())
         self.addAlgorithm(GeoBioToolRugosityAlgorithm())
+        self.addAlgorithm(GeoBioToolLAIVCIAlgorithm())
 
     def id(self):
         return "geobiotool"
@@ -30,8 +34,8 @@ class GeoBioToolProvider(QgsProcessingProvider):
 
 class GeoBioToolPlugin:
     def __init__(self, iface):
-        self.iface = iface
-        self.action = None
+        self.iface    = iface
+        self.action   = None
         self.provider = None
 
     def initGui(self):
@@ -65,24 +69,24 @@ class GeoBioToolPlugin:
             import numpy as np
             from collections import Counter
 
-            ds = gdal.Open(raster_path)
+            ds   = gdal.Open(raster_path)
             band = ds.GetRasterBand(1)
             data = band.ReadAsArray().astype(np.float32)
             data[np.isnan(data)] = 0
             data[np.isinf(data)] = 0
             vals = data[(data > 0) & (data < 255)]
-            cnt = Counter(vals)
+            cnt  = Counter(vals)
             total = sum(cnt.values())
 
             def shannon(c):
-                ps = [v / total for v in c.values()]
-                return -sum(p * np.log(p) for p in ps if p > 0)
+                ps = [v/total for v in c.values()]
+                return -sum(p*np.log(p) for p in ps if p>0)
 
             def simpson(c):
-                ps = [v / total for v in c.values()]
-                return 1 - sum(p * p for p in ps)
+                ps = [v/total for v in c.values()]
+                return 1 - sum(p*p for p in ps)
 
-            s = shannon(cnt)
+            s  = shannon(cnt)
             si = simpson(cnt)
 
             with open(save_path, 'w', encoding='utf-8') as f:
