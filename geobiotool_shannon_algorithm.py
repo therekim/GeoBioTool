@@ -5,8 +5,8 @@ from osgeo import gdal
 from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingParameterRasterLayer,
-    QgsProcessingParameterFileDestination,
     QgsProcessingParameterString,
+    QgsProcessingParameterFileDestination,
     QgsProcessingContext,
     QgsProcessingFeedback,
     QgsProcessingException
@@ -15,71 +15,80 @@ from qgis.PyQt.QtGui import QIcon
 
 class GeoBioToolShannonAlgorithm(QgsProcessingAlgorithm):
 
-    def name(self):
-        return "compute_shannon_wiener_1948"
-    def displayName(self):
+    def name(self) -> str:
+        return "compute_shannon_1948"
+
+    def displayName(self) -> str:
         return "Compute Shannon–Wiener (1948)"
-    def group(self):
-        # '1 Raster' 으로 시작하면 ASCII보다 위에 표시됩니다
+
+    def group(self) -> str:
         return "1 Raster"
-    def groupId(self):
+
+    def groupId(self) -> str:
         return "raster"
-    def icon(self):
-        # resources.qrc 에 등록된 icons/icon.png
+
+    def icon(self) -> QIcon:
         return QIcon(":/icons/icon.png")
 
     def initAlgorithm(self, config=None):
-        self.addParameter(QgsProcessingParameterRasterLayer("INPUT", ""))
-        self.addParameter(QgsProcessingParameterFileDestination("OUTPUT", "", fileFilter="Text files (*.txt)"))
-        self.addParameter(QgsProcessingParameterString("CLASSES", "", optional=True))
+        self.addParameter(QgsProcessingParameterRasterLayer(
+            "INPUT", "Input classified raster"
+        ))
+        self.addParameter(QgsProcessingParameterString(
+            "CLASSES", "Target classes (e.g., 1,4,6 or 0-9)", optional=True
+        ))
+        self.addParameter(QgsProcessingParameterFileDestination(
+            "OUTPUT_TEXT", "Output text file", fileFilter="Text files (*.txt)"
+        ))
 
-    def parse_classes(self, s):
-        if not s: return None
-        cs = set()
-        for t in s.split(','):
-            t = t.strip()
-            if '-' in t:
-                a, b = map(int, t.split('-'))
-                cs.update(range(a, b+1))
+    def parse_classes(self, s: str):
+        if not s:
+            return None
+        classes = set()
+        for token in s.split(','):
+            token = token.strip()
+            if '-' in token:
+                a, b = map(int, token.split('-'))
+                classes.update(range(a, b+1))
             else:
-                cs.add(int(t))
-        return cs
+                classes.add(int(token))
+        return classes
 
-    def processAlgorithm(self, parameters, context: QgsProcessingContext, feedback: QgsProcessingFeedback):
-        layer = self.parameterAsRasterLayer(parameters, "INPUT", context)
-        out   = self.parameterAsFileOutput(parameters, "OUTPUT", context)
-        sel   = self.parse_classes(self.parameterAsString(parameters, "CLASSES", context))
+    def processAlgorithm(self, parameters, context: QgsProcessingContext, feedback: QgsProcessingFeedback) -> dict:
+        layer    = self.parameterAsRasterLayer(parameters, "INPUT", context)
+        selected = self.parse_classes(self.parameterAsString(parameters, "CLASSES", context))
+        out_txt  = self.parameterAsFileOutput(parameters, "OUTPUT_TEXT", context)
 
-        ds   = gdal.Open(layer.source()); band = ds.GetRasterBand(1)
+        ds   = gdal.Open(layer.source())
+        band = ds.GetRasterBand(1)
         data = band.ReadAsArray().astype(np.float32)
-        data[np.isnan(data)] = 0; data[np.isinf(data)] = 0
+        data[np.isnan(data)] = 0
+        data[np.isinf(data)] = 0
         flat = data.flatten()
-        valid = flat[np.isin(flat, list(sel))] if sel else flat[(flat>0)&(flat<255)]
 
-        cnt   = Counter(valid); total = sum(cnt.values())
+        if selected:
+            vals = flat[np.isin(flat, list(selected))]
+        else:
+            vals = flat[(flat > 0) & (flat < 255)]
+
+        cnt   = Counter(vals)
+        total = sum(cnt.values())
         if total == 0:
-            raise QgsProcessingException("No valid pixels")
-
-        # Shannon
+            raise QgsProcessingException("No valid pixels found.")
         ps    = [v/total for v in cnt.values()]
-        s_idx = -sum(p*np.log(p) for p in ps if p>0)
+        si    = -sum(p * np.log(p) for p in ps if p > 0)
 
-        # proportions
-        props = {k: v/total for k, v in cnt.items()}
-
-        with open(out, "w", encoding="utf-8") as f:
+        with open(out_txt, "w", encoding="utf-8") as f:
             f.write(f"Total pixels: {total}\n")
-            f.write(f"Shannon–Wiener: {s_idx:.4f}\n\n")
+            f.write(f"Shannon Index: {si:.4f}\n\n")
+            f.write("Class ID order and proportions:\n")
+            for cls in sorted(cnt.keys()):
+                f.write(f"  Class {int(cls)}: {cnt[cls]/total:.4f} ({cnt[cls]} pixels)\n")
+            f.write("\nTop classes by proportion:\n")
+            for cls, prop in sorted({k:v/total for k,v in cnt.items()}.items(), key=lambda x: x[1], reverse=True):
+                f.write(f"  Class {int(cls)}: {prop:.4f} ({cnt[cls]} pixels)\n")
 
-            f.write("By class (asc):\n")
-            for k in sorted(props):
-                f.write(f"  {int(k)}: {props[k]:.4f} ({cnt[k]} pixels)\n")
-
-            f.write("\nBy proportion (desc):\n")
-            for k, p in sorted(props.items(), key=lambda x: x[1], reverse=True):
-                f.write(f"  {int(k)}: {p:.4f} ({cnt[k]} pixels)\n")
-
-        return {"OUTPUT": out}
+        return {"OUTPUT_TEXT": out_txt}
 
     def createInstance(self):
         return GeoBioToolShannonAlgorithm()
